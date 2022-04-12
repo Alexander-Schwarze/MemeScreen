@@ -19,6 +19,7 @@ repositories {
 
 dependencies {
     implementation(compose.desktop.currentOs)
+    implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.7.5")
 }
 
 tasks.withType<KotlinCompile>() {
