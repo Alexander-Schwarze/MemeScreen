@@ -2,7 +2,6 @@
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -20,6 +19,7 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.util.*
 import kotlin.concurrent.fixedRateTimer
 import kotlin.math.roundToInt
@@ -85,7 +85,7 @@ fun main() = application {
         state = WindowState(size = DpSize(450.dp, 800.dp)),
         title = "MemeScreen",
         onCloseRequest = ::exitApplication,
-        icon = painterResource("alex.ico")
+        icon = painterResource("icon.ico")
     ) {
         App(
             openSessions = openSessions,
@@ -119,18 +119,28 @@ fun main() = application {
 }
 
 data class OverlayConfig(
-    val updateInterval: Duration = 10.seconds,
-    val updateIntervalReductionOnHotkey: Duration = 2.seconds,
-    val widthPercent: Float = 50f,
-    val heightPercent: Float = 50f,
+    val updateInterval: Duration = 60.seconds,
+    val updateIntervalReductionOnHotkey: Duration = 5.seconds,
+    val widthPercent: Float = 70f,
+    val heightPercent: Float = 70f,
 )
 
 sealed interface OverlayStatus {
     object Stopped : OverlayStatus
 
-    data class Running(val currentInterval: Duration, val timer: Timer) : OverlayStatus {
+    data class Running(
+        val startTimestamp: Instant,
+        val currentInterval: Duration,
+        val timer: Timer
+    ) : OverlayStatus {
         companion object {
-            fun getStatusForCurrentInterval(currentInterval: Duration, coroutineScope: CoroutineScope, openSessions: List<DefaultWebSocketServerSession>, overlayConfig: OverlayConfig) = Running(
+            fun getStatusForCurrentInterval(
+                currentInterval: Duration,
+                coroutineScope: CoroutineScope,
+                openSessions: List<DefaultWebSocketServerSession>,
+                overlayConfig: OverlayConfig
+            ) = Running(
+                startTimestamp = Instant.now(),
                 currentInterval = currentInterval,
                 timer = fixedRateTimer(
                     period = currentInterval.inWholeMilliseconds,
@@ -149,7 +159,7 @@ sealed interface OverlayStatus {
     }
 }
 
-fun hostServer(
+private fun hostServer(
     openSessions: SnapshotStateList<DefaultWebSocketServerSession>,
     overlayConfig: OverlayConfig
 ) {
@@ -178,7 +188,7 @@ fun hostServer(
     }.start(wait = false)
 }
 
-suspend fun updateOverlay(
+private suspend fun updateOverlay(
     session: DefaultWebSocketServerSession,
     overlayConfig: OverlayConfig
 ) {

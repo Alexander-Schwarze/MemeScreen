@@ -1,11 +1,9 @@
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextDecoration
@@ -19,9 +17,14 @@ import java.awt.Desktop
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 import java.net.URI
+import java.time.Duration
+import java.time.Instant
+import kotlin.concurrent.timer
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
+import kotlin.time.toKotlinDuration
 
 @Composable
 @Preview
@@ -86,11 +89,29 @@ fun App(
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
 
+                var runningTime by remember { mutableStateOf(0.seconds) }
+                val currentOverlayStatus by rememberUpdatedState(overlayStatus)
+
+                DisposableEffect(Unit) {
+                    val timer = timer(
+                        period = 10.milliseconds.inWholeMilliseconds,
+                        daemon = true
+                    ) {
+                        (currentOverlayStatus as? OverlayStatus.Running)?.let {
+                            runningTime = Duration.between(it.startTimestamp, Instant.now()).toKotlinDuration()
+                        }
+                    }
+
+                    onDispose {
+                        timer.cancel()
+                    }
+                }
+
                 Text(
                     style = MaterialTheme.typography.body1,
                     text = "Status: ${
                         when (overlayStatus) {
-                            is OverlayStatus.Running -> "Running (Current Interval: ${overlayStatus.currentInterval})"
+                            is OverlayStatus.Running -> "Running for ${runningTime.toString(DurationUnit.SECONDS, 1)} (Current Interval: ${overlayStatus.currentInterval})"
                             is OverlayStatus.Stopped -> "Stopped"
                         }
                     }",

@@ -44,7 +44,7 @@ compose.desktop {
             packageVersion = "1.0.0"
 
             windows {
-                iconFile.set(File("src/main/resources/alex.ico"))
+                iconFile.set(File("src/main/resources/icon.ico"))
             }
         }
     }
