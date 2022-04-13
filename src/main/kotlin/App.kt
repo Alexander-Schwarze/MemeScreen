@@ -198,27 +198,6 @@ fun App() {
 var currentRenderIteration = 0
 var lastRandomIndex = -1
 
-override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-    return when (keyCode) {
-        KeyEvent.KEYCODE_D -> {
-            moveShip(MOVE_LEFT)
-            true
-        }
-        KeyEvent.KEYCODE_F -> {
-            moveShip(MOVE_RIGHT)
-            true
-        }
-        KeyEvent.KEYCODE_J -> {
-            fireMachineGun()
-            true
-        }
-        KeyEvent.KEYCODE_K -> {
-            fireMissile()
-            true
-        }
-        else -> super.onKeyUp(keyCode, event)
-    }
-}
 
 fun renderHTML(grid_x: String, grid_y: String, startInterval: String, reductionAmount: String, rendering: Boolean){
     val folder = "$APP_DATA/MemeScreen"
