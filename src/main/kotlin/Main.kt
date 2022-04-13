@@ -121,8 +121,8 @@ fun main() = application {
 data class OverlayConfig(
     val updateInterval: Duration = 60.seconds,
     val updateIntervalReductionOnHotkey: Duration = 5.seconds,
-    val widthPercent: Float = 70f,
-    val heightPercent: Float = 70f,
+    val widthPercent: Float = 30f,
+    val heightPercent: Float = 50f,
 )
 
 sealed interface OverlayStatus {
