@@ -2,6 +2,8 @@
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -81,8 +83,9 @@ fun main() = application {
 
     Window(
         state = WindowState(size = DpSize(450.dp, 800.dp)),
-        title = "OverlayTest",
-        onCloseRequest = ::exitApplication
+        title = "MemeScreen",
+        onCloseRequest = ::exitApplication,
+        icon = painterResource("alex.ico")
     ) {
         App(
             openSessions = openSessions,

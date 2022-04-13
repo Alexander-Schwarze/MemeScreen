@@ -42,6 +42,10 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "MemeScreen"
             packageVersion = "1.0.0"
+
+            windows {
+                iconFile.set(File("src/main/resources/alex.ico"))
+            }
         }
     }
 }
