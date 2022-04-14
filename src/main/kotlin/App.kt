@@ -230,7 +230,7 @@ fun App(
                     onValueChange = {
                         onOverlayConfigChange(overlayConfig.copy(widthPercent = it))
                     },
-                    steps = 9,
+                    steps = 19,
                     valueRange = 0f..100f,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -247,7 +247,7 @@ fun App(
                     onValueChange = {
                         onOverlayConfigChange(overlayConfig.copy(heightPercent = it))
                     },
-                    steps = 9,
+                    steps = 19,
                     valueRange = 0f..100f,
                     modifier = Modifier
                         .fillMaxWidth()
