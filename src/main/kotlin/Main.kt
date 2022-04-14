@@ -24,8 +24,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.time.Instant
 import java.util.*
+import javax.swing.JOptionPane
 import kotlin.concurrent.fixedRateTimer
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -49,56 +52,65 @@ private object State {
     }
 }
 
-fun main() = application {
-    LaunchedEffect(Unit) {
-        hostServer()
-        setupHotkey()
-        setupTwitchBot()
-    }
+val colorNameMap = (object { })::class.java.getResource("colors.txt")!!.readText().lines().associate {
+    val (name, colorCode) = it.split("=")
+    name to Color(0xFF000000 or colorCode.drop(1).toLong(16))
+}
 
-    Window(
-        state = WindowState(size = DpSize(500.dp, 800.dp)),
-        title = "MemeScreen",
-        onCloseRequest = ::exitApplication,
-        icon = painterResource("icon.ico")
-    ) {
-        App(
-            openSessions = State.openSessions,
-            overlayStatus = State.overlayStatus,
-            overlayConfig = State.overlayConfig,
-            onOverlayConfigChange = { overlayConfig ->
-                State.overlayConfig = overlayConfig
+fun main() = try {
+    application {
+        LaunchedEffect(Unit) {
+            hostServer()
+            setupHotkey()
+            setupTwitchBot()
+        }
 
-                (State.overlayStatus as? OverlayStatus.Running)?.let {
-                    it.timer.cancel()
-                    State.updateOverlayStatus(
-                        OverlayStatus.Running.getStatusForCurrentInterval(
-                            currentInterval = State.overlayConfig.updateInterval,
-                            openSessions = State.openSessions,
-                            overlayConfig = State.overlayConfig
-                        )
-                    )
-                }
-            },
-            onIntervalControlButtonClicked = {
-                State.updateOverlayStatus(
-                    when (State.overlayStatus) {
-                        is OverlayStatus.Running -> {
-                            (State.overlayStatus as OverlayStatus.Running).timer.cancel()
-                            OverlayStatus.Stopped
-                        }
-                        is OverlayStatus.Stopped -> {
+        Window(
+            state = WindowState(size = DpSize(500.dp, 800.dp)),
+            title = "MemeScreen",
+            onCloseRequest = ::exitApplication,
+            icon = painterResource("icon.ico")
+        ) {
+            App(
+                openSessions = State.openSessions,
+                overlayStatus = State.overlayStatus,
+                overlayConfig = State.overlayConfig,
+                onOverlayConfigChange = { overlayConfig ->
+                    State.overlayConfig = overlayConfig
+
+                    (State.overlayStatus as? OverlayStatus.Running)?.let {
+                        it.timer.cancel()
+                        State.updateOverlayStatus(
                             OverlayStatus.Running.getStatusForCurrentInterval(
                                 currentInterval = State.overlayConfig.updateInterval,
                                 openSessions = State.openSessions,
                                 overlayConfig = State.overlayConfig
                             )
-                        }
+                        )
                     }
-                )
-            }
-        )
+                },
+                onIntervalControlButtonClicked = {
+                    State.updateOverlayStatus(
+                        when (State.overlayStatus) {
+                            is OverlayStatus.Running -> {
+                                (State.overlayStatus as OverlayStatus.Running).timer.cancel()
+                                OverlayStatus.Stopped
+                            }
+                            is OverlayStatus.Stopped -> {
+                                OverlayStatus.Running.getStatusForCurrentInterval(
+                                    currentInterval = State.overlayConfig.updateInterval,
+                                    openSessions = State.openSessions,
+                                    overlayConfig = State.overlayConfig
+                                )
+                            }
+                        }
+                    )
+                }
+            )
+        }
     }
+} catch (e: Throwable) {
+    JOptionPane.showMessageDialog(null, e.message + "\n" + StringWriter().also { e.printStackTrace(PrintWriter(it)) }, "InfoBox: File Debugger", JOptionPane.INFORMATION_MESSAGE);
 }
 
 data class OverlayConfig(
@@ -106,7 +118,7 @@ data class OverlayConfig(
     val updateIntervalReductionOnHotkey: Duration = 5.seconds,
     val widthPercent: Float = 30f,
     val heightPercent: Float = 50f,
-    val color: Color = Color.Black
+    val colorName: String = "black"
 )
 
 sealed interface OverlayStatus {
@@ -205,7 +217,13 @@ private suspend fun updateOverlay(
             Random.nextInt(0..(100 - overlayConfig.heightPercent.roundToInt())),
             overlayConfig.widthPercent,
             overlayConfig.heightPercent,
-            overlayConfig.color.run { "#%02x%02x%02x".format((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt()) }
+            (colorNameMap[overlayConfig.colorName] ?: Color.Black) .run {
+                "#%02x%02x%02x".format(
+                    (red * 255).toInt(),
+                    (green * 255).toInt(),
+                    (blue * 255).toInt()
+                )
+            }
         ).joinToString(",")
     )
 }
