@@ -8,12 +8,18 @@ plugins {
 }
 
 group = "me.shika"
-version = "2.0"
+version = "2.0.0"
 
 repositories {
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+}
+
+tasks.processResources {
+    filesMatching("buildinfo.properties") {
+        expand(project.properties)
+    }
 }
 
 dependencies {
@@ -43,7 +49,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "MemeScreen"
-            packageVersion = "1.0.0"
+            packageVersion = project.version.toString()
 
             windows {
                 iconFile.set(File("src/main/resources/icon.ico"))

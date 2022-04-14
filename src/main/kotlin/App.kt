@@ -265,10 +265,22 @@ fun App(
             modifier = Modifier.weight(1f)
         )
 
-        Text(
-            style = MaterialTheme.typography.body1,
-            text = "Created by Marc & Alex",
+        Row(
             modifier = Modifier.padding(bottom = 2.dp)
-        )
+        ) {
+            Text(
+                style = MaterialTheme.typography.body1,
+                text = "Created by Marc & Alex"
+            )
+
+            Spacer(
+                modifier = Modifier.weight(1f)
+            )
+
+            Text(
+                style = MaterialTheme.typography.body1,
+                text = "Version ${BuildInfo.version}"
+            )
+        }
     }
 }
