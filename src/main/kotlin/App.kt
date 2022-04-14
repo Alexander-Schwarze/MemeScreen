@@ -223,7 +223,7 @@ fun App(
             onValueChange = {
                 onOverlayConfigChange(overlayConfig.copy(widthPercent = it))
             },
-            steps = 9,
+            steps = 19,
             valueRange = 0f..100f,
             modifier = Modifier
                 .fillMaxWidth()
@@ -234,13 +234,13 @@ fun App(
             style = MaterialTheme.typography.caption,
             text = "Height in percent: (${overlayConfig.heightPercent.roundToInt()}%)"
         )
-
+        
         Slider(
             value = overlayConfig.heightPercent,
             onValueChange = {
                 onOverlayConfigChange(overlayConfig.copy(heightPercent = it))
             },
-            steps = 9,
+            steps = 19,
             valueRange = 0f..100f,
             modifier = Modifier
                 .fillMaxWidth()
