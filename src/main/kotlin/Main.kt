@@ -1,4 +1,4 @@
-
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -40,6 +40,7 @@ import kotlin.time.Duration.Companion.seconds
 const val port = 42020
 
 private object State {
+    val scaffoldState = ScaffoldState(DrawerState(DrawerValue.Closed) { true }, SnackbarHostState())
     val openSessions = mutableStateListOf<DefaultWebSocketServerSession>()
     var overlayConfig by mutableStateOf(OverlayConfig())
 
@@ -59,6 +60,8 @@ val colorNameMap = (object { })::class.java.getResource("colors.txt")!!.readText
 
 fun main() = try {
     application {
+        val coroutineScope = rememberCoroutineScope()
+
         LaunchedEffect(Unit) {
             hostServer()
             setupHotkey()
@@ -71,42 +74,59 @@ fun main() = try {
             onCloseRequest = ::exitApplication,
             icon = painterResource("icon.ico")
         ) {
-            App(
-                openSessions = State.openSessions,
-                overlayStatus = State.overlayStatus,
-                overlayConfig = State.overlayConfig,
-                onOverlayConfigChange = { overlayConfig ->
-                    State.overlayConfig = overlayConfig
+            MaterialTheme(
+                colors = Palette
+            ) {
+                Scaffold(
+                    scaffoldState = State.scaffoldState
+                ) {
+                    App(
+                        scaffoldState = State.scaffoldState,
+                        openSessions = State.openSessions,
+                        overlayStatus = State.overlayStatus,
+                        overlayConfig = State.overlayConfig,
+                        onOverlayConfigChange = { overlayConfig ->
+                            State.overlayConfig = overlayConfig
 
-                    (State.overlayStatus as? OverlayStatus.Running)?.let {
-                        it.timer.cancel()
-                        State.updateOverlayStatus(
-                            OverlayStatus.Running.getStatusForCurrentInterval(
-                                currentInterval = State.overlayConfig.updateInterval,
-                                openSessions = State.openSessions,
-                                overlayConfig = State.overlayConfig
-                            )
-                        )
-                    }
-                },
-                onIntervalControlButtonClicked = {
-                    State.updateOverlayStatus(
-                        when (State.overlayStatus) {
-                            is OverlayStatus.Running -> {
-                                (State.overlayStatus as OverlayStatus.Running).timer.cancel()
-                                OverlayStatus.Stopped
-                            }
-                            is OverlayStatus.Stopped -> {
-                                OverlayStatus.Running.getStatusForCurrentInterval(
-                                    currentInterval = State.overlayConfig.updateInterval,
-                                    openSessions = State.openSessions,
-                                    overlayConfig = State.overlayConfig
+                            (State.overlayStatus as? OverlayStatus.Running)?.let {
+                                it.timer.cancel()
+                                State.updateOverlayStatus(
+                                    OverlayStatus.Running.getStatusForCurrentInterval(
+                                        currentInterval = State.overlayConfig.updateInterval,
+                                        openSessions = State.openSessions,
+                                        overlayConfig = State.overlayConfig
+                                    )
                                 )
                             }
+                        },
+                        onIntervalControlButtonClicked = {
+                            when (val currentOverlayStatus = State.overlayStatus) {
+                                is OverlayStatus.Running -> {
+                                    currentOverlayStatus.timer.cancel()
+                                    OverlayStatus.Stopped
+                                }
+                                is OverlayStatus.Stopped -> {
+                                    if (State.overlayConfig.updateInterval.isPositive() && State.overlayConfig.updateIntervalReductionOnHotkey.isPositive()) {
+                                        OverlayStatus.Running.getStatusForCurrentInterval(
+                                            currentInterval = State.overlayConfig.updateInterval,
+                                            openSessions = State.openSessions,
+                                            overlayConfig = State.overlayConfig
+                                        )
+                                    } else {
+                                        null
+                                    }
+                                }
+                            }
+                                ?.let(State::updateOverlayStatus)
+                                ?: run {
+                                    coroutineScope.launch {
+                                        State.scaffoldState.snackbarHostState.showSnackbar("Interval and interval reduction have to be larger than 0.")
+                                    }
+                                }
                         }
                     )
                 }
-            )
+            }
         }
     }
 } catch (e: Throwable) {
