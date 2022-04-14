@@ -90,14 +90,16 @@ fun main() = try {
                             State.overlayConfig = overlayConfig
 
                             (State.overlayStatus as? OverlayStatus.Running)?.let {
-                                it.timer.cancel()
-                                State.updateOverlayStatus(
-                                    OverlayStatus.Running.getStatusForCurrentInterval(
-                                        currentInterval = State.overlayConfig.updateInterval,
-                                        openSessions = State.openSessions,
-                                        overlayConfig = State.overlayConfig
+                                if (State.overlayConfig.updateInterval.isPositive() && State.overlayConfig.updateIntervalReductionOnHotkey.isPositive()) {
+                                    it.timer.cancel()
+                                    State.updateOverlayStatus(
+                                        OverlayStatus.Running.getStatusForCurrentInterval(
+                                            currentInterval = State.overlayConfig.updateInterval,
+                                            openSessions = State.openSessions,
+                                            overlayConfig = State.overlayConfig
+                                        )
                                     )
-                                )
+                                }
                             }
                         },
                         onIntervalControlButtonClicked = {
