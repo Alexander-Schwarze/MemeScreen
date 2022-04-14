@@ -1,4 +1,4 @@
-# MemeScreen
+# MemeScreen v2.0
 A program for Brett to black out parts of a screen after certain times
 
 # Setup
@@ -9,4 +9,8 @@ When program is new, create a folder "data" on highest level (same as src), whic
 * botconfig.properties
   * channel=<channel name> (found in the channel URL at the end e.g. twich.tv/channel_name)
   * onlymods=false (set on true of only mods can use the bot)
-  * usercooldownseconds=30 (set cooldown for commands for users)
+  * usercooldownseconds=<cooldown> (set cooldown for commands for users)
+
+# Usage
+The App itself provides a websocket on localhost to show an HTML-page, which can be integrated into OBS/Streamlabs as a browser source.
+It has an UI to adjust parameters. Aditionally, it will start a Twitch-Bot to adjust parameters via twich-chat aswell (configured in botconfig.properties)
