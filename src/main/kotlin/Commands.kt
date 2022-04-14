@@ -14,7 +14,8 @@ data class CommandHandlerScope(
     val chat: TwitchChat,
     val openSessions: SnapshotStateList<DefaultWebSocketServerSession>,
     var overlayConfig: OverlayConfig,
-    var overlayStatus: OverlayStatus
+    var overlayStatus: OverlayStatus,
+    var putUserOnCooldown: Boolean = false
 )
 
 val commands = selfReferencing<List<Command>> {
@@ -36,6 +37,7 @@ val commands = selfReferencing<List<Command>> {
                         if (nextInterval.isPositive()) {
                             overlayStatus = currentOverlayStatus.copy(currentInterval = nextInterval)
                             chat.sendMessage(BotConfig.channel, "Reduced interval to ${(overlayStatus as OverlayStatus.Running).currentInterval}.")
+                            putUserOnCooldown = true
                         } else {
                             chat.sendMessage(BotConfig.channel, "Unable to reduce interval below 0.")
                         }
@@ -59,6 +61,7 @@ val commands = selfReferencing<List<Command>> {
                 val newIntervalDuration = (newIntervalSeconds * 1000).roundToInt().milliseconds
                 overlayConfig = overlayConfig.copy(updateInterval = newIntervalDuration)
                 chat.sendMessage(BotConfig.channel, "Updated interval duration to ${newIntervalDuration}.")
+                putUserOnCooldown = true
 
                 restartOverlayIfNecessary()
             }
@@ -79,6 +82,7 @@ val commands = selfReferencing<List<Command>> {
                 val newIntervalReductionDuration = (newIntervalReductionSeconds * 1000).roundToInt().milliseconds
                 overlayConfig = overlayConfig.copy(updateIntervalReductionOnHotkey = newIntervalReductionDuration)
                 chat.sendMessage(BotConfig.channel, "Updated interval reduction duration to ${newIntervalReductionDuration}.")
+                putUserOnCooldown = true
 
                 restartOverlayIfNecessary()
             }
@@ -98,6 +102,7 @@ val commands = selfReferencing<List<Command>> {
 
                 overlayConfig = overlayConfig.copy(widthPercent = newWidth)
                 chat.sendMessage(BotConfig.channel, "Width set to ${newWidth}%.")
+                putUserOnCooldown = true
 
                 restartOverlayIfNecessary()
             }
@@ -117,6 +122,7 @@ val commands = selfReferencing<List<Command>> {
 
                 overlayConfig = overlayConfig.copy(heightPercent = newHeight)
                 chat.sendMessage(BotConfig.channel, "Height set to ${newHeight}%.")
+                putUserOnCooldown = true
 
                 restartOverlayIfNecessary()
             }
@@ -135,6 +141,7 @@ val commands = selfReferencing<List<Command>> {
                     overlayConfig = overlayConfig
                 )
                 chat.sendMessage(BotConfig.channel, "Overlay was started.")
+                putUserOnCooldown = true
             }
         ),
         Command(
@@ -148,6 +155,7 @@ val commands = selfReferencing<List<Command>> {
                 (overlayStatus as OverlayStatus.Running).timer.cancel()
                 overlayStatus = OverlayStatus.Stopped
                 chat.sendMessage(BotConfig.channel, "Overlay was stopped.")
+                putUserOnCooldown = true
             }
         ),
     )
