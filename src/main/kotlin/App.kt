@@ -6,12 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -159,8 +158,8 @@ fun App(
                     modifier = Modifier
                         .padding(bottom = 32.dp)
                 ) {
-                    val focusRequester = remember { FocusRequester() }
-                    
+                    val focusManager = LocalFocusManager.current
+
                     var textFieldSize by remember { mutableStateOf(IntSize.Zero) }
                     var isExpanded by remember { mutableStateOf(false) }
 
@@ -179,32 +178,38 @@ fun App(
                                     .size(24.dp)
                             )
                         },
+                        singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .onGloballyPositioned {
                                 textFieldSize = it.size
                             }
                             .onFocusChanged {
-                                debugLog(it.isFocused)
                                 isExpanded = it.isFocused
-                            }
-                            .onFocusEvent {
-                                debugLog("new one: ", it.isFocused)
                             }
                     )
 
                     DropdownMenu(
                         expanded = isExpanded,
-                        onDismissRequest = { },
+                        focusable = false,
+                        onDismissRequest = {
+                            isExpanded = false
+                            focusManager.clearFocus()
+                        },
                         modifier = Modifier
                             .width(LocalDensity.current.run { textFieldSize.width.toDp() })
                     ) {
                         colorNameMap.keys.filter { overlayConfig.colorName in it }.take(5).forEach {
                             DropdownMenuItem(
-                                onClick = {}
+                                onClick = {
+                                    onOverlayConfigChange(overlayConfig.copy(colorName = it))
+                                    focusManager.clearFocus()
+                                }
                             ) {
                                 Text(it)
+
                                 Spacer(Modifier.weight(1f))
+
                                 Box(
                                     modifier = Modifier
                                         .background(colorNameMap[it]!!)
