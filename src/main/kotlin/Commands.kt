@@ -19,16 +19,10 @@ data class CommandHandlerScope(
     var putUserOnCooldown: Boolean = false
 )
 
-private val colorNameMap = mapOf(
-    "red" to Color.Red,
-    "blue" to Color.Blue,
-    "black" to Color.Black,
-    "green" to Color.Green,
-    "yellow" to Color.Yellow,
-    "white" to Color.White,
-    "magenta" to Color.Magenta,
-    "cyan" to Color.Cyan,
-)
+private val colorNameMap = (object { })::class.java.getResource("colors.txt")!!.readText().lines().associate {
+    val (name, colorCode) = it.split("=")
+    name to Color(0xFF000000 or colorCode.drop(1).toLong(16))
+}
 
 val commands = selfReferencing<List<Command>> {
     listOf(
@@ -173,18 +167,19 @@ val commands = selfReferencing<List<Command>> {
         Command(
             name = "color",
             handler = { arguments ->
-                val firstArgument = arguments.firstOrNull() ?: run {
+                val color = arguments.joinToString(" ").takeIf { it.isNotEmpty() } ?: run {
                     chat.sendMessage(BotConfig.channel, "Current color: ${colorNameMap.entries.first { (_, color) -> color == overlayConfig.color }.key}.")
                     return@Command
                 }
 
-                val newColor = colorNameMap[firstArgument.lowercase()] ?: run {
-                    chat.sendMessage(BotConfig.channel, "Invalid color. Following colors are valid: ${colorNameMap.keys.joinToString(", ")}")
+                val newColor = colorNameMap[color.lowercase()] ?: run {
+                    chat.sendMessage(BotConfig.channel, "Invalid color.")
                     return@Command
                 }
 
                 overlayConfig = overlayConfig.copy(color = newColor)
-                chat.sendMessage(BotConfig.channel, "Color set to ${firstArgument.lowercase()}.")
+                chat.sendMessage(BotConfig.channel, "Color set to ${color.lowercase()}.")
+                putUserOnCooldown = true
 
                 restartOverlayIfNecessary()
             }
