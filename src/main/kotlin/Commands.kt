@@ -35,8 +35,13 @@ val commands = selfReferencing<List<Command>> {
                         val nextInterval = currentOverlayStatus.currentInterval - overlayConfig.updateIntervalReductionOnHotkey
 
                         if (nextInterval.isPositive()) {
-                            overlayStatus = currentOverlayStatus.copy(currentInterval = nextInterval)
-                            chat.sendMessage(BotConfig.channel, "Reduced interval to ${(overlayStatus as OverlayStatus.Running).currentInterval}.")
+                            overlayStatus = OverlayStatus.Running.getStatusForCurrentInterval(
+                                currentInterval = nextInterval,
+                                openSessions = openSessions,
+                                overlayConfig = overlayConfig
+                            )
+
+                            chat.sendMessage(BotConfig.channel, "Reduced interval to ${nextInterval}.")
                             putUserOnCooldown = true
                         } else {
                             chat.sendMessage(BotConfig.channel, "Unable to reduce interval below 0.")
@@ -132,6 +137,11 @@ val commands = selfReferencing<List<Command>> {
             handler = {
                 if (overlayStatus is OverlayStatus.Running) {
                     chat.sendMessage(BotConfig.channel, "Overlay is already running.")
+                    return@Command
+                }
+
+                if (!overlayConfig.updateInterval.isPositive() || !overlayConfig.updateIntervalReductionOnHotkey.isPositive()) {
+                    chat.sendMessage(BotConfig.channel, "Interval and interval reduction have to be larger than 0.")
                     return@Command
                 }
 
