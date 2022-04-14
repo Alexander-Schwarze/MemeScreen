@@ -8,13 +8,14 @@ window.onload = () => {
     };
 
     webSocket.onmessage = event => {
-        const [x, y, width, height] = event.data.split(',').map(n => Number(n));
-
+        const [x, y, width, height, color] = event.data.split(',');
+        console.log(x, y, width, height, color);
         Object.assign(overlay.style, {
             left: `${x}%`,
             top: `${y}%`,
             width: `${width}%`,
             height: `${height}%`,
+            backgroundColor: color,
         });
     };
 

@@ -1,5 +1,6 @@
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.graphics.Color
 import com.github.twitch4j.chat.TwitchChat
 import io.ktor.server.websocket.*
 import kotlin.math.roundToInt
@@ -15,6 +16,17 @@ data class CommandHandlerScope(
     val openSessions: SnapshotStateList<DefaultWebSocketServerSession>,
     var overlayConfig: OverlayConfig,
     var overlayStatus: OverlayStatus
+)
+
+private val colorNameMap = mapOf(
+    "red" to Color.Red,
+    "blue" to Color.Blue,
+    "black" to Color.Black,
+    "green" to Color.Green,
+    "yellow" to Color.Yellow,
+    "white" to Color.White,
+    "magenta" to Color.Magenta,
+    "cyan" to Color.Cyan,
 )
 
 val commands = selfReferencing<List<Command>> {
@@ -148,6 +160,25 @@ val commands = selfReferencing<List<Command>> {
                 (overlayStatus as OverlayStatus.Running).timer.cancel()
                 overlayStatus = OverlayStatus.Stopped
                 chat.sendMessage(BotConfig.channel, "Overlay was stopped.")
+            }
+        ),
+        Command(
+            name = "color",
+            handler = { arguments ->
+                val firstArgument = arguments.firstOrNull() ?: run {
+                    chat.sendMessage(BotConfig.channel, "Current color: ${colorNameMap.entries.first { (_, color) -> color == overlayConfig.color }.key}.")
+                    return@Command
+                }
+
+                val newColor = colorNameMap[firstArgument.lowercase()] ?: run {
+                    chat.sendMessage(BotConfig.channel, "Invalid color. Following colors are valid: ${colorNameMap.keys.joinToString(", ")}")
+                    return@Command
+                }
+
+                overlayConfig = overlayConfig.copy(color = newColor)
+                chat.sendMessage(BotConfig.channel, "Color set to ${firstArgument.lowercase()}.")
+
+                restartOverlayIfNecessary()
             }
         ),
     )

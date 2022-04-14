@@ -17,7 +17,6 @@ fun Route.overlayPage() {
                         raw(
                             """
                                 #overlay {
-                                    background-color: black;
                                     position: absolute;
                                 }
                             """.trimIndent()

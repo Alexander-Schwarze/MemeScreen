@@ -1,4 +1,6 @@
+
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -104,6 +106,7 @@ data class OverlayConfig(
     val updateIntervalReductionOnHotkey: Duration = 5.seconds,
     val widthPercent: Float = 30f,
     val heightPercent: Float = 50f,
+    val color: Color = Color.Black
 )
 
 sealed interface OverlayStatus {
@@ -201,7 +204,8 @@ private suspend fun updateOverlay(
             Random.nextInt(0..(100 - overlayConfig.widthPercent.roundToInt())),
             Random.nextInt(0..(100 - overlayConfig.heightPercent.roundToInt())),
             overlayConfig.widthPercent,
-            overlayConfig.heightPercent
+            overlayConfig.heightPercent,
+            overlayConfig.color.run { "#%02x%02x%02x".format((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt()) }
         ).joinToString(",")
     )
 }
