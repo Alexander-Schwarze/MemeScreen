@@ -33,6 +33,7 @@ import kotlin.concurrent.fixedRateTimer
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.random.nextInt
+import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -131,6 +132,7 @@ fun main() = try {
     }
 } catch (e: Throwable) {
     JOptionPane.showMessageDialog(null, e.message + "\n" + StringWriter().also { e.printStackTrace(PrintWriter(it)) }, "InfoBox: File Debugger", JOptionPane.INFORMATION_MESSAGE);
+    exitProcess(0)
 }
 
 data class OverlayConfig(
