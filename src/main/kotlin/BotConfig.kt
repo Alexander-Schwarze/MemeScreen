@@ -8,4 +8,5 @@ object BotConfig {
 
     val channel: String = properties.getProperty("channel")
     val onlyMods = properties.getProperty("onlymods") == "true"
+    val userCooldownSeconds = properties.getProperty("usercooldownseconds").toLong()
 }

@@ -235,9 +235,12 @@ private fun setupTwitchBot() {
         .withChatAccount(OAuth2Credential("twitch", chatAccountToken))
         .build()
 
+    val lastCommandUsagePerUser = mutableMapOf<String, Instant>()
+
     twitchClient.chat.run {
         connect()
         joinChannel(BotConfig.channel)
+        sendMessage(BotConfig.channel, "Bot running.")
     }
 
     twitchClient.eventManager.onEvent(ChannelMessageEvent::class.java) { messageEvent ->
@@ -250,6 +253,14 @@ private fun setupTwitchBot() {
 
         if (BotConfig.onlyMods && CommandPermission.MODERATOR in messageEvent.permissions) {
             twitchClient.chat.sendMessage(BotConfig.channel, "You do not have the required permissions to use this command.")
+            return@onEvent
+        }
+
+        val lastCommandUsedInstant = lastCommandUsagePerUser.getOrPut(messageEvent.user.name) { Instant.now().minusSeconds(BotConfig.userCooldownSeconds) }
+
+        if (Instant.now().isBefore(lastCommandUsedInstant.plusSeconds(BotConfig.userCooldownSeconds)) && CommandPermission.MODERATOR !in messageEvent.permissions) {
+            val secondsUntilTimeoutOver = java.time.Duration.between(Instant.now(), lastCommandUsedInstant.plusSeconds(BotConfig.userCooldownSeconds)).seconds
+            twitchClient.chat.sendMessage(BotConfig.channel, "You are still on cooldown. Please try again in $secondsUntilTimeoutOver seconds.")
             return@onEvent
         }
 
@@ -268,6 +279,10 @@ private fun setupTwitchBot() {
 
         if (commandHandlerScope.overlayStatus != State.overlayStatus) {
             State.updateOverlayStatus(commandHandlerScope.overlayStatus)
+        }
+
+        if (commandHandlerScope.putUserOnCooldown) {
+            lastCommandUsagePerUser[messageEvent.user.name] = Instant.now()
         }
     }
 }
