@@ -1,7 +1,6 @@
 
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -11,6 +10,10 @@ import androidx.compose.ui.window.application
 import com.github.kwhat.jnativehook.GlobalScreen
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener
+import com.github.philippheuer.credentialmanager.domain.OAuth2Credential
+import com.github.twitch4j.TwitchClientBuilder
+import com.github.twitch4j.chat.events.channel.ChannelMessageEvent
+import com.github.twitch4j.common.enums.CommandPermission
 import io.ktor.server.application.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
@@ -18,9 +21,14 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.time.Instant
 import java.util.*
+import javax.swing.JOptionPane
 import kotlin.concurrent.fixedRateTimer
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -31,91 +39,78 @@ import kotlin.time.Duration.Companion.seconds
 
 const val port = 42020
 
-fun main() = application {
-    val coroutineScope = rememberCoroutineScope()
+private object State {
+    val openSessions = mutableStateListOf<DefaultWebSocketServerSession>()
+    var overlayConfig by mutableStateOf(OverlayConfig())
 
+    var overlayStatus by mutableStateOf<OverlayStatus>(OverlayStatus.Stopped)
+        private set // Disallow direct setting so forgetting to cancel the timer is impossible
 
-    val openSessions = rememberSaveable { mutableStateListOf<DefaultWebSocketServerSession>() }
-    var overlayConfig by rememberSaveable { mutableStateOf(OverlayConfig()) }
-
-    var overlayStatus by rememberSaveable { mutableStateOf<OverlayStatus>(OverlayStatus.Stopped) }
-
-
-    LaunchedEffect(Unit) {
-        hostServer(openSessions, overlayConfig)
-
-        GlobalScreen.registerNativeHook()
-        GlobalScreen.addNativeKeyListener(object : NativeKeyListener {
-            override fun nativeKeyPressed(nativeEvent: NativeKeyEvent) {
-                val currentOverlayStatus = overlayStatus
-
-                if (nativeEvent.modifiers and NativeKeyEvent.CTRL_MASK > 0 && nativeEvent.keyCode == 12 && currentOverlayStatus is OverlayStatus.Running) {
-                    val nextInterval = currentOverlayStatus.currentInterval - overlayConfig.updateIntervalReductionOnHotkey
-
-                    if (nextInterval.isPositive()) {
-                        currentOverlayStatus.timer.cancel()
-                        overlayStatus = OverlayStatus.Running.getStatusForCurrentInterval(
-                            currentInterval = nextInterval,
-                            coroutineScope = coroutineScope,
-                            openSessions = openSessions,
-                            overlayConfig = overlayConfig
-                        )
-                    }
-                }
-            }
-        })
+    fun updateOverlayStatus(newOverlayStatus: OverlayStatus) {
+        (overlayStatus as? OverlayStatus.Running)?.timer?.cancel()
+        overlayStatus = newOverlayStatus
     }
+}
 
-    // We cannot restart the effect due to the aforementioned bug so this doesn't work
-    /*LaunchedEffect(overlayConfig) {
-        while (true) {
-            if (overlayStatus is OverlayStatus.Running) {
-                openSessions.map {
-                    launch {
-                        updateOverlay(it)
-                    }
-                }.joinAll()
-            }
+val colorNameMap = (object { })::class.java.getResource("colors.txt")!!.readText().lines().associate {
+    val (name, colorCode) = it.split("=")
+    name to Color(0xFF000000 or colorCode.drop(1).toLong(16))
+}
 
-            delay(overlayConfig.updateInterval)
+fun main() = try {
+    application {
+        LaunchedEffect(Unit) {
+            hostServer()
+            setupHotkey()
+            setupTwitchBot()
         }
-    }*/
 
-    Window(
-        state = WindowState(size = DpSize(450.dp, 800.dp)),
-        title = "MemeScreen",
-        onCloseRequest = ::exitApplication,
-        icon = painterResource("icon.ico")
-    ) {
-        App(
-            openSessions = openSessions,
-            overlayStatus = overlayStatus,
-            overlayConfig = overlayConfig,
-            onOverlayConfigChange = {
-                overlayConfig = it
+        Window(
+            state = WindowState(size = DpSize(500.dp, 800.dp)),
+            title = "MemeScreen",
+            onCloseRequest = ::exitApplication,
+            icon = painterResource("icon.ico")
+        ) {
+            App(
+                openSessions = State.openSessions,
+                overlayStatus = State.overlayStatus,
+                overlayConfig = State.overlayConfig,
+                onOverlayConfigChange = { overlayConfig ->
+                    State.overlayConfig = overlayConfig
 
-                // Would really prefer not to do it here, but we have to as part of the aforementioned workaround
-                (overlayStatus as? OverlayStatus.Running)?.timer?.cancel()
-                overlayStatus = OverlayStatus.Stopped
-            },
-            onIntervalControlButtonClicked = {
-                overlayStatus = when (overlayStatus) {
-                    is OverlayStatus.Running -> {
-                        (overlayStatus as OverlayStatus.Running).timer.cancel()
-                        OverlayStatus.Stopped
-                    }
-                    is OverlayStatus.Stopped -> {
-                        OverlayStatus.Running.getStatusForCurrentInterval(
-                            currentInterval = overlayConfig.updateInterval,
-                            coroutineScope = coroutineScope,
-                            openSessions = openSessions,
-                            overlayConfig = overlayConfig
+                    (State.overlayStatus as? OverlayStatus.Running)?.let {
+                        it.timer.cancel()
+                        State.updateOverlayStatus(
+                            OverlayStatus.Running.getStatusForCurrentInterval(
+                                currentInterval = State.overlayConfig.updateInterval,
+                                openSessions = State.openSessions,
+                                overlayConfig = State.overlayConfig
+                            )
                         )
                     }
+                },
+                onIntervalControlButtonClicked = {
+                    State.updateOverlayStatus(
+                        when (State.overlayStatus) {
+                            is OverlayStatus.Running -> {
+                                (State.overlayStatus as OverlayStatus.Running).timer.cancel()
+                                OverlayStatus.Stopped
+                            }
+                            is OverlayStatus.Stopped -> {
+                                OverlayStatus.Running.getStatusForCurrentInterval(
+                                    currentInterval = State.overlayConfig.updateInterval,
+                                    openSessions = State.openSessions,
+                                    overlayConfig = State.overlayConfig
+                                )
+                            }
+                        }
+                    )
                 }
-            }
-        )
+            )
+        }
     }
+} catch (e: Throwable) {
+    JOptionPane.showMessageDialog(null, e.message + "\n" + StringWriter().also { e.printStackTrace(PrintWriter(it)) }, "InfoBox: File Debugger", JOptionPane.INFORMATION_MESSAGE);
 }
 
 data class OverlayConfig(
@@ -123,9 +118,14 @@ data class OverlayConfig(
     val updateIntervalReductionOnHotkey: Duration = 5.seconds,
     val widthPercent: Float = 30f,
     val heightPercent: Float = 50f,
+    val colorName: String = "black"
 )
 
 sealed interface OverlayStatus {
+    companion object {
+        private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    }
+
     object Stopped : OverlayStatus
 
     data class Running(
@@ -136,7 +136,6 @@ sealed interface OverlayStatus {
         companion object {
             fun getStatusForCurrentInterval(
                 currentInterval: Duration,
-                coroutineScope: CoroutineScope,
                 openSessions: List<DefaultWebSocketServerSession>,
                 overlayConfig: OverlayConfig
             ) = Running(
@@ -159,10 +158,7 @@ sealed interface OverlayStatus {
     }
 }
 
-private fun hostServer(
-    openSessions: SnapshotStateList<DefaultWebSocketServerSession>,
-    overlayConfig: OverlayConfig
-) {
+private fun hostServer() {
     embeddedServer(CIO, port = port) {
         install(WebSockets)
 
@@ -171,8 +167,8 @@ private fun hostServer(
 
             webSocket("/socket") {
                 println("Got new connection.")
-                openSessions.add(this)
-                updateOverlay(this, overlayConfig)
+                State.openSessions.add(this)
+                updateOverlay(this, State.overlayConfig)
 
                 try {
                     @Suppress("ControlFlowWithEmptyBody")
@@ -181,11 +177,34 @@ private fun hostServer(
                     }
                 } finally {
                     println("User disconnected.")
-                    openSessions.remove(this)
+                    State.openSessions.remove(this)
                 }
             }
         }
     }.start(wait = false)
+}
+
+private fun setupHotkey() {
+    GlobalScreen.registerNativeHook()
+    GlobalScreen.addNativeKeyListener(object : NativeKeyListener {
+        override fun nativeKeyPressed(nativeEvent: NativeKeyEvent) {
+            val currentOverlayStatus = State.overlayStatus
+
+            if (nativeEvent.modifiers and NativeKeyEvent.CTRL_MASK > 0 && nativeEvent.keyCode == 12 && currentOverlayStatus is OverlayStatus.Running) {
+                val nextInterval = currentOverlayStatus.currentInterval - State.overlayConfig.updateIntervalReductionOnHotkey
+
+                if (nextInterval.isPositive()) {
+                    State.updateOverlayStatus(
+                        OverlayStatus.Running.getStatusForCurrentInterval(
+                            currentInterval = nextInterval,
+                            openSessions = State.openSessions,
+                            overlayConfig = State.overlayConfig
+                        )
+                    )
+                }
+            }
+        }
+    })
 }
 
 private suspend fun updateOverlay(
@@ -197,7 +216,14 @@ private suspend fun updateOverlay(
             Random.nextInt(0..(100 - overlayConfig.widthPercent.roundToInt())),
             Random.nextInt(0..(100 - overlayConfig.heightPercent.roundToInt())),
             overlayConfig.widthPercent,
-            overlayConfig.heightPercent
+            overlayConfig.heightPercent,
+            (colorNameMap[overlayConfig.colorName] ?: Color.Black) .run {
+                "#%02x%02x%02x".format(
+                    (red * 255).toInt(),
+                    (green * 255).toInt(),
+                    (blue * 255).toInt()
+                )
+            }
         ).joinToString(",")
     )
 }
@@ -217,3 +243,64 @@ private suspend fun updateOverlay(
         println("delay over")
     }
 }*/
+
+private fun setupTwitchBot() {
+    val chatAccountToken = File("data/bot.token").readText()
+
+    val twitchClient = TwitchClientBuilder.builder()
+        .withEnableHelix(true)
+        .withEnableChat(true)
+        .withChatAccount(OAuth2Credential("twitch", chatAccountToken))
+        .build()
+
+    val lastCommandUsagePerUser = mutableMapOf<String, Instant>()
+
+    twitchClient.chat.run {
+        connect()
+        joinChannel(BotConfig.channel)
+        sendMessage(BotConfig.channel, "Bot running.")
+    }
+
+    twitchClient.eventManager.onEvent(ChannelMessageEvent::class.java) { messageEvent ->
+        if (!messageEvent.message.startsWith("#")) {
+            return@onEvent
+        }
+
+        val parts = messageEvent.message.trimStart('#').split(" ")
+        val command = commands.find { it.name == parts.first() } ?: return@onEvent
+
+        if (BotConfig.onlyMods && CommandPermission.MODERATOR in messageEvent.permissions) {
+            twitchClient.chat.sendMessage(BotConfig.channel, "You do not have the required permissions to use this command.")
+            return@onEvent
+        }
+
+        val lastCommandUsedInstant = lastCommandUsagePerUser.getOrPut(messageEvent.user.name) { Instant.now().minusSeconds(BotConfig.userCooldownSeconds) }
+
+        if (Instant.now().isBefore(lastCommandUsedInstant.plusSeconds(BotConfig.userCooldownSeconds)) && CommandPermission.MODERATOR !in messageEvent.permissions) {
+            val secondsUntilTimeoutOver = java.time.Duration.between(Instant.now(), lastCommandUsedInstant.plusSeconds(BotConfig.userCooldownSeconds)).seconds
+            twitchClient.chat.sendMessage(BotConfig.channel, "You are still on cooldown. Please try again in $secondsUntilTimeoutOver seconds.")
+            return@onEvent
+        }
+
+        val commandHandlerScope = CommandHandlerScope(
+            chat = twitchClient.chat,
+            openSessions = State.openSessions,
+            overlayConfig = State.overlayConfig,
+            overlayStatus = State.overlayStatus
+        )
+
+        command.handler(commandHandlerScope, parts.drop(1))
+
+        if (commandHandlerScope.overlayConfig != State.overlayConfig) {
+            State.overlayConfig = commandHandlerScope.overlayConfig
+        }
+
+        if (commandHandlerScope.overlayStatus != State.overlayStatus) {
+            State.updateOverlayStatus(commandHandlerScope.overlayStatus)
+        }
+
+        if (commandHandlerScope.putUserOnCooldown) {
+            lastCommandUsagePerUser[messageEvent.user.name] = Instant.now()
+        }
+    }
+}

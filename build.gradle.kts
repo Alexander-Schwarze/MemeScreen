@@ -29,6 +29,8 @@ dependencies {
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-websockets:$ktorVersion")
     implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
+
+    implementation("com.github.twitch4j:twitch4j:1.9.0")
 }
 
 tasks.withType<KotlinCompile> {

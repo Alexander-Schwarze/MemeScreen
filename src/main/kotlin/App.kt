@@ -1,12 +1,18 @@
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.ktor.server.websocket.*
 import kotlinx.coroutines.Dispatchers
@@ -147,6 +153,72 @@ fun App(
                         .fillMaxWidth()
                         .padding(bottom = 32.dp)
                 )
+
+                Column(
+                    modifier = Modifier
+                        .padding(bottom = 32.dp)
+                ) {
+                    val focusManager = LocalFocusManager.current
+
+                    var textFieldSize by remember { mutableStateOf(IntSize.Zero) }
+                    var isExpanded by remember { mutableStateOf(false) }
+
+                    TextField(
+                        label = {
+                            Text("Color")
+                        },
+                        value = overlayConfig.colorName,
+                        onValueChange = {
+                            onOverlayConfigChange(overlayConfig.copy(colorName = it))
+                        },
+                        trailingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .background(colorNameMap[overlayConfig.colorName] ?: Color.Transparent)
+                                    .size(24.dp)
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned {
+                                textFieldSize = it.size
+                            }
+                            .onFocusChanged {
+                                isExpanded = it.isFocused
+                            }
+                    )
+
+                    DropdownMenu(
+                        expanded = isExpanded,
+                        focusable = false,
+                        onDismissRequest = {
+                            isExpanded = false
+                            focusManager.clearFocus()
+                        },
+                        modifier = Modifier
+                            .width(LocalDensity.current.run { textFieldSize.width.toDp() })
+                    ) {
+                        colorNameMap.keys.filter { overlayConfig.colorName in it }.take(5).forEach {
+                            DropdownMenuItem(
+                                onClick = {
+                                    onOverlayConfigChange(overlayConfig.copy(colorName = it))
+                                    focusManager.clearFocus()
+                                }
+                            ) {
+                                Text(it)
+
+                                Spacer(Modifier.weight(1f))
+
+                                Box(
+                                    modifier = Modifier
+                                        .background(colorNameMap[it]!!)
+                                        .size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Text(
                     style = MaterialTheme.typography.caption,

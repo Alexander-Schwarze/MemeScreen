@@ -13,12 +13,15 @@ fun Route.overlayPage() {
                 """.trimIndent()
 
                 style {
-                    +"""
-                        #overlay {
-                            background-color: black;
-                            position: absolute;
-                        }
-                    """.trimIndent()
+                    unsafe {
+                        raw(
+                            """
+                                #overlay {
+                                    position: absolute;
+                                }
+                            """.trimIndent()
+                        )
+                    }
                 }
 
                 div {
