@@ -1,8 +1,9 @@
+
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.github.twitch4j.chat.TwitchChat
 import io.ktor.server.websocket.*
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
 
 data class Command(
     val name: String,
@@ -50,13 +51,14 @@ val commands = selfReferencing<List<Command>> {
                     return@Command
                 }
 
-                val newIntervalSeconds = firstArgument.toIntOrNull()?.takeIf { it > 0 } ?: run {
+                val newIntervalSeconds = firstArgument.toFloatOrNull()?.takeIf { it > 0 } ?: run {
                     chat.sendMessage(BotConfig.channel, "Invalid duration. Please provide a positive number in seconds.")
                     return@Command
                 }
 
-                overlayConfig = overlayConfig.copy(updateInterval = newIntervalSeconds.seconds)
-                chat.sendMessage(BotConfig.channel, "Updated interval duration to ${newIntervalSeconds.seconds}.")
+                val newIntervalDuration = (newIntervalSeconds * 1000).roundToInt().milliseconds
+                overlayConfig = overlayConfig.copy(updateInterval = newIntervalDuration)
+                chat.sendMessage(BotConfig.channel, "Updated interval duration to ${newIntervalDuration}.")
 
                 restartOverlayIfNecessary()
             }
@@ -69,13 +71,14 @@ val commands = selfReferencing<List<Command>> {
                     return@Command
                 }
 
-                val newIntervalSeconds = firstArgument.toIntOrNull()?.takeIf { it > 0 } ?: run {
+                val newIntervalReductionSeconds = firstArgument.toFloatOrNull()?.takeIf { it > 0 } ?: run {
                     chat.sendMessage(BotConfig.channel, "Invalid duration. Please provide a positive number in seconds.")
                     return@Command
                 }
 
-                overlayConfig = overlayConfig.copy(updateInterval = newIntervalSeconds.seconds)
-                chat.sendMessage(BotConfig.channel, "Updated interval duration to ${newIntervalSeconds.seconds}.")
+                val newIntervalReductionDuration = (newIntervalReductionSeconds * 1000).roundToInt().milliseconds
+                overlayConfig = overlayConfig.copy(updateIntervalReductionOnHotkey = newIntervalReductionDuration)
+                chat.sendMessage(BotConfig.channel, "Updated interval reduction duration to ${newIntervalReductionDuration}.")
 
                 restartOverlayIfNecessary()
             }
@@ -151,8 +154,8 @@ val commands = selfReferencing<List<Command>> {
 }
 
 private fun CommandHandlerScope.restartOverlayIfNecessary() {
-    if (overlayStatus is OverlayStatus.Running) {
-        (overlayStatus as OverlayStatus.Running).timer.cancel()
+    (overlayStatus as? OverlayStatus.Running)?.let {
+        it.timer.cancel()
         overlayStatus = OverlayStatus.Running.getStatusForCurrentInterval(
             currentInterval = overlayConfig.updateInterval,
             openSessions = openSessions,

@@ -55,7 +55,7 @@ fun main() = application {
     }
 
     Window(
-        state = WindowState(size = DpSize(450.dp, 800.dp)),
+        state = WindowState(size = DpSize(500.dp, 800.dp)),
         title = "MemeScreen",
         onCloseRequest = ::exitApplication,
         icon = painterResource("icon.ico")
@@ -64,9 +64,19 @@ fun main() = application {
             openSessions = State.openSessions,
             overlayStatus = State.overlayStatus,
             overlayConfig = State.overlayConfig,
-            onOverlayConfigChange = {
-                State.overlayConfig = it
-                State.updateOverlayStatus(OverlayStatus.Stopped)
+            onOverlayConfigChange = { overlayConfig ->
+                State.overlayConfig = overlayConfig
+
+                (State.overlayStatus as? OverlayStatus.Running)?.let {
+                    it.timer.cancel()
+                    State.updateOverlayStatus(
+                        OverlayStatus.Running.getStatusForCurrentInterval(
+                            currentInterval = State.overlayConfig.updateInterval,
+                            openSessions = State.openSessions,
+                            overlayConfig = State.overlayConfig
+                        )
+                    )
+                }
             },
             onIntervalControlButtonClicked = {
                 State.updateOverlayStatus(
@@ -213,7 +223,7 @@ private suspend fun updateOverlay(
 }*/
 
 private fun setupTwitchBot() {
-    val chatAccountToken = File("tokens/bot.token").readText()
+    val chatAccountToken = File("data/bot.token").readText()
 
     val twitchClient = TwitchClientBuilder.builder()
         .withEnableHelix(true)
